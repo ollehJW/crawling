@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import XLSX from 'xlsx';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -24,6 +25,100 @@ const pagesWithDownloadHandler = new WeakSet();
 let lastError = null;
 let lastAutomation = null;
 let downloadOverrideDepth = 0;
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let value = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (inQuotes) {
+      if (char === '"' && next === '"') {
+        value += '"';
+        index += 1;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        value += char;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      row.push(value);
+      value = '';
+    } else if (char === '\n') {
+      row.push(value);
+      rows.push(row);
+      row = [];
+      value = '';
+    } else if (char !== '\r') {
+      value += char;
+    }
+  }
+
+  if (value || row.length) {
+    row.push(value);
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function normalizeCell(value) {
+  return String(value ?? '').replace(/^\uFEFF/, '').trim();
+}
+
+function normalizeOrderDate(value) {
+  const text = normalizeCell(value);
+  const matchedDate = text.match(/\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/);
+  if (!matchedDate) return text;
+  const [year, month, day] = matchedDate[0].split(/[-/.]/);
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+function parseApprovalCsv(buffer) {
+  const text = buffer.toString('utf8');
+  const rows = parseCsvRows(text).filter((row) => row.some((cell) => normalizeCell(cell)));
+  if (!rows.length) return [];
+  const headers = rows[0].map(normalizeCell);
+  return rows.slice(1).map((row) => Object.fromEntries(headers.map((header, index) => [header, normalizeCell(row[index])])));
+}
+
+function parseApprovalXlsx(buffer) {
+  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+  const firstSheetName = workbook.SheetNames[0];
+  if (!firstSheetName) return [];
+  return XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '', raw: false })
+    .map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [normalizeCell(key), normalizeCell(value)])));
+}
+
+function parseApprovalListFile(buffer, filename) {
+  const extension = path.extname(filename || '').toLowerCase();
+  if (!['.csv', '.xlsx', '.xls'].includes(extension)) {
+    throw new Error('csv, xlsx, xls 파일만 업로드할 수 있습니다.');
+  }
+
+  const rows = extension === '.csv' ? parseApprovalCsv(buffer) : parseApprovalXlsx(buffer);
+  const headers = new Set(rows.flatMap((row) => Object.keys(row).map(normalizeCell)));
+  const requiredColumns = ['품의번호', '발주일'];
+  const missingColumns = requiredColumns.filter((column) => !headers.has(column));
+  if (missingColumns.length) {
+    throw new Error(`필수 컬럼이 없습니다: ${missingColumns.join(', ')}`);
+  }
+
+  const items = rows
+    .map((row) => ({ approvalNumber: normalizeCell(row['품의번호']), orderDate: normalizeOrderDate(row['발주일']) }))
+    .filter((item) => item.approvalNumber || item.orderDate);
+
+  return { filename, total: items.length, items };
+}
 
 function isVaatzPage(candidate, title = '') {
   const haystack = `${candidate.url()} ${title}`.toLowerCase();
@@ -1490,6 +1585,19 @@ app.post('/api/dump-page', async (_req, res) => {
   } catch (error) {
     lastError = error.message;
     res.status(500).json(await getStatus());
+  }
+});
+
+app.post('/api/upload-approval-list', express.raw({ type: '*/*', limit: '50mb' }), async (req, res) => {
+  try {
+    lastError = null;
+    const filename = decodeURIComponent(String(req.get('x-filename') || ''));
+    const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || '');
+    if (!buffer.length) throw new Error('업로드된 파일이 비어 있습니다.');
+    res.json(parseApprovalListFile(buffer, filename));
+  } catch (error) {
+    lastError = error.message;
+    res.status(400).json({ error: error.message, lastError });
   }
 });
 

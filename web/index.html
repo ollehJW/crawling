@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WIA Vaatz</title>
-    <link rel="stylesheet" href="/styles.css?v=20260730-1125" />
+    <link rel="stylesheet" href="/styles.css?v=20260730-1230" />
   </head>
   <body>
     <main class="app">
@@ -12,10 +12,15 @@
         <h1>WIA Vaatz</h1>
         <div class="actions single">
           <button id="wiaDirect">WIA Vaatz 직접 이동</button>
-          <label class="mouse-mode">
-            <input id="rightMouseMode" type="checkbox" />
-            <span>오른쪽 마우스</span>
-          </label>
+          <button id="approvalListUploadButton" type="button">품의서 리스트 업로드</button>
+          <input id="approvalListFileInput" type="file" accept=".csv,.xlsx,.xls" hidden />
+          <div id="sidebarApprovalList" class="sidebar-approval-list" hidden>
+            <div class="sidebar-list-header">
+              <span>품의서 리스트</span>
+              <strong id="sidebarApprovalTotal">0</strong>
+            </div>
+            <div id="sidebarApprovalRows" class="sidebar-list-rows"></div>
+          </div>
           <input id="approvalNumberInput" class="side-input" type="text" placeholder="품의번호" value="A2026050004991" />
           <div class="date-fields">
             <label>
@@ -59,6 +64,34 @@
         </div>
       </form>
     </div>
-    <script src="/app.js?v=20260730-1125"></script>
+    <div id="approvalListModal" class="modal" hidden>
+      <div class="modal-dialog approval-list-dialog">
+        <div class="modal-header">
+          <h2>품의서 리스트</h2>
+          <button id="approvalListClose" type="button" class="icon-button" aria-label="닫기">×</button>
+        </div>
+        <div class="approval-summary">
+          <span>총 건수</span>
+          <strong id="approvalListTotal">0</strong>
+        </div>
+        <div id="approvalListFileName" class="file-name"></div>
+        <div class="approval-list-table-wrap">
+          <table class="approval-list-table">
+            <thead>
+              <tr>
+                <th>품의번호</th>
+                <th>발주일</th>
+              </tr>
+            </thead>
+            <tbody id="approvalListRows"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions approval-list-actions">
+          <button id="approvalListCancel" type="button">취소</button>
+          <button id="approvalListConfirm" type="button">확인</button>
+        </div>
+      </div>
+    </div>
+    <script src="/app.js?v=20260730-1230"></script>
   </body>
 </html>
