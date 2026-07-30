@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Python environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime artifacts from Playwright/manual automation
+artifacts/
+downloads/
+
+# Local screenshots and temporary captures
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# Data inputs/outputs
+*.xlsx
+*.xls
+merged_vaatz_*.csv
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

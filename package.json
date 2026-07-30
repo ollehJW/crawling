@@ -1,0 +1,14 @@
+{
+  "name": "hyundai-autoway-crawling",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "login:autoway": "node scripts/login-autoway.mjs",
+    "manual:autoway": "node scripts/manual-autoway-web.mjs"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "playwright": "1.54.2"
+  }
+}

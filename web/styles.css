@@ -1,0 +1,163 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #101418;
+  color: #eef3f8;
+  font-family: Arial, "Noto Sans KR", sans-serif;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.panel {
+  border-right: 1px solid #2b343d;
+  background: #151b21;
+  padding: 20px;
+}
+
+h1 {
+  margin: 0 0 18px;
+  font-size: 22px;
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+button {
+  border: 1px solid #42505d;
+  background: #22303a;
+  color: #f6f9fb;
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2b3b47;
+}
+
+.mouse-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #42505d;
+  background: #18242c;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #f6f9fb;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.mouse-mode input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #58b68e;
+}
+
+.side-input {
+  width: 100%;
+  border: 1px solid #42505d;
+  background: #0f171d;
+  color: #f6f9fb;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.side-input::placeholder {
+  color: #7f8b94;
+}
+
+.date-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.date-fields label {
+  display: grid;
+  gap: 4px;
+  color: #aab6bf;
+  font-size: 12px;
+}
+
+.date-fields .side-input {
+  color-scheme: dark;
+}
+
+.hint {
+  margin: 18px 0;
+  color: #aab6bf;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.status {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.status dt {
+  color: #7f8b94;
+}
+
+.status dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.viewport {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 16px;
+  background: #0b0f13;
+}
+
+#screen {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  border: 1px solid #2b343d;
+  background: #fff;
+}
+
+#automation {
+  background: #1f4d40;
+  border-color: #347360;
+}
+
+#automation:hover {
+  background: #28614f;
+}
+
+.automation-log {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding-left: 20px;
+  color: #cbd5dc;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.automation-log .ok {
+  color: #a9e8cb;
+}
+
+.automation-log .warn {
+  color: #ffd480;
+}

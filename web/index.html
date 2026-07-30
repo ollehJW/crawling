@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WIA Vaatz</title>
+    <link rel="stylesheet" href="/styles.css?v=20260730-1015" />
+  </head>
+  <body>
+    <main class="app">
+      <aside class="panel">
+        <h1>WIA Vaatz</h1>
+        <div class="actions single">
+          <button id="wiaDirect">WIA Vaatz 직접 이동</button>
+          <label class="mouse-mode">
+            <input id="rightMouseMode" type="checkbox" />
+            <span>오른쪽 마우스</span>
+          </label>
+          <input id="approvalNumberInput" class="side-input" type="text" placeholder="품의번호" value="A2026050004991" />
+          <div class="date-fields">
+            <label>
+              <span>시작일</span>
+              <input id="orderStartDateInput" class="side-input" type="date" value="2025-08-01" />
+            </label>
+            <label>
+              <span>종료일</span>
+              <input id="orderEndDateInput" class="side-input" type="date" value="2026-07-31" />
+            </label>
+          </div>
+          <button id="clickApprovalNumber">품의번호 누르기</button>
+          <button id="dumpOpenPages">열린 창 저장</button>
+          <button id="dumpPage">화면 분석 저장</button>
+        </div>
+        <dl class="status">
+          <dt>URL</dt>
+          <dd id="url">-</dd>
+          <dt>상태</dt>
+          <dd id="state">대기</dd>
+        </dl>
+      </aside>
+      <section class="viewport">
+        <img id="screen" alt="WIA Vaatz browser screen" draggable="false" />
+      </section>
+    </main>
+    <script src="/app.js?v=20260730-1015"></script>
+  </body>
+</html>
