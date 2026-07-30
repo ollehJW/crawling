@@ -217,6 +217,7 @@ function renderDownloadedApprovals(result) {
 function getProgressText(progress) {
   if (progress === 'ok') return 'O';
   if (progress === 'fail') return 'X';
+  if (progress === 'running') return '진행중';
   return '-';
 }
 
@@ -456,7 +457,7 @@ document.querySelector('#clickApprovalNumber').addEventListener('click', async (
       if (automationStopRequested) break;
 
       const item = confirmedApprovalList[index];
-      setApprovalProgress(index, 'pending');
+      setApprovalProgress(index, 'running');
 
       try {
         const { orderStartDate, orderEndDate } = getOrderDateRange(item.orderDate);
@@ -504,12 +505,6 @@ document.querySelector('#clickApprovalNumber').addEventListener('click', async (
   } finally {
     endAutomationLock();
   }
-});
-
-document.querySelector('#dumpOpenPages').addEventListener('click', async () => {
-  stateEl.textContent = '열린 창 저장 중';
-  const result = await api('/api/dump-open-pages', { method: 'POST' });
-  stateEl.textContent = result.savedTo ? `저장 완료: ${result.savedTo}` : '저장 완료';
 });
 
 document.querySelector('#dumpPage').addEventListener('click', async () => {

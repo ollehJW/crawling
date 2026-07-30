@@ -846,11 +846,15 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
   };
 
   const closeAttachmentAndApprovalWindows = async () => {
-    const attachmentPopupClose = await clickFixedCoordinate('attachment-popup-close', 968, 234);
-    await activePage.waitForTimeout(1500).catch(() => {});
+    const attachmentPopupCloseAttempts = [];
+    for (const [x, y] of [[968, 234], [970, 234], [966, 236], [968, 232]]) {
+      attachmentPopupCloseAttempts.push(await clickFixedCoordinate('attachment-popup-close', x, y));
+      await activePage.waitForTimeout(700).catch(() => {});
+    }
+
     const approvalWindowClose = await closeApprovalWindow();
     await activePage.waitForTimeout(1000).catch(() => {});
-    return { attachmentPopupClose, approvalWindowClose };
+    return { attachmentPopupClose: { method: 'fixed-coordinate-sequence', attempts: attachmentPopupCloseAttempts }, approvalWindowClose };
   };
 
   const getAttachmentPopupFileCount = async () => {
@@ -894,6 +898,8 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
     const minimumCount = Math.max(1, expectedCount);
     const deadline = Date.now() + 600000;
     let quietSince = 0;
+    let shortfallQuietSince = 0;
+    let lastObservedCount = 0;
 
     while (Date.now() < deadline) {
       const settled = downloadRecords.filter((record) => record.done);
@@ -901,11 +907,26 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
       const hasEnoughEvents = downloadRecords.length >= minimumCount;
       const allObservedFinished = downloadRecords.length > 0 && settled.length === downloadRecords.length;
 
+      if (downloadRecords.length !== lastObservedCount) {
+        lastObservedCount = downloadRecords.length;
+        shortfallQuietSince = 0;
+      }
+
       if (hasEnoughEvents && allObservedFinished && completed.length >= minimumCount) {
         if (!quietSince) quietSince = Date.now();
         if (Date.now() - quietSince >= 5000) return completed;
       } else {
         quietSince = 0;
+      }
+
+      // VAATZ sometimes reports an attachment count that does not match the number
+      // of Playwright download events. Once all observed downloads are saved and no
+      // new download event appears for a while, treat the observed set as complete.
+      if (!hasEnoughEvents && allObservedFinished && completed.length > 0) {
+        if (!shortfallQuietSince) shortfallQuietSince = Date.now();
+        if (Date.now() - shortfallQuietSince >= 15000) return completed;
+      } else {
+        shortfallQuietSince = 0;
       }
 
       await activePage.waitForTimeout(500).catch(() => {});
@@ -953,7 +974,7 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
       const cleanup = keepOnlyQuoteFilesInDirectory(targetDir);
       const files = cleanup.keptFiles;
       const completed = files.length > 0;
-      const closedWindows = completed ? await closeAttachmentAndApprovalWindows() : null;
+      const closedWindows = await closeAttachmentAndApprovalWindows();
       return {
         targetDir,
         expectedCount,

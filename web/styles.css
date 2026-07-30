@@ -296,7 +296,7 @@ button:hover {
 
 .sidebar-list-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
@@ -334,6 +334,13 @@ button:hover {
 .progress-mark.fail {
   color: #fff2f2;
   background: #d84f4f;
+}
+
+.progress-mark.running {
+  min-width: 52px;
+  padding: 0 8px;
+  color: #172033;
+  background: #f0c75e;
 }
 
 .approval-list-actions {
