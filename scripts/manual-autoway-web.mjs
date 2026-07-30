@@ -99,6 +99,226 @@ function parseApprovalXlsx(buffer) {
     .map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [normalizeCell(key), normalizeCell(value)])));
 }
 
+function toSafeApprovalFolderName(value) {
+  return String(value || 'unknown-approval').replace(/[^A-Za-z0-9._-]+/g, '_');
+}
+
+function isQuoteFileName(filename) {
+  return String(filename || '').includes('견적');
+}
+
+function listDownloadedFilesForApproval(approvalNumber) {
+  const targetDir = path.join(DOWNLOAD_DIR, toSafeApprovalFolderName(approvalNumber));
+  if (!fs.existsSync(targetDir)) return { targetDir, files: [] };
+
+  const files = [];
+  const collect = (currentDir) => {
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        collect(fullPath);
+        continue;
+      }
+
+      const stats = fs.statSync(fullPath);
+      if (stats.size <= 0 || !isQuoteFileName(entry.name)) continue;
+      files.push({
+        suggested: entry.name,
+        targetPath: fullPath,
+        savedTo: fullPath,
+        bytes: stats.size,
+        stable: true,
+        existing: true
+      });
+    }
+  };
+
+  collect(targetDir);
+  return { targetDir, files };
+}
+
+function keepOnlyQuoteFilesInDirectory(targetDir) {
+  const keptFiles = [];
+  const deletedFiles = [];
+  if (!fs.existsSync(targetDir)) return { keptFiles, deletedFiles };
+
+  const prune = (currentDir) => {
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        prune(fullPath);
+        if (fs.existsSync(fullPath) && fs.readdirSync(fullPath).length === 0) {
+          fs.rmdirSync(fullPath);
+        }
+        continue;
+      }
+
+      const stats = fs.statSync(fullPath);
+      if (stats.size > 0 && isQuoteFileName(entry.name)) {
+        keptFiles.push({
+          suggested: entry.name,
+          targetPath: fullPath,
+          savedTo: fullPath,
+          bytes: stats.size,
+          stable: true
+        });
+        continue;
+      }
+
+      fs.rmSync(fullPath, { force: true });
+      deletedFiles.push({ suggested: entry.name, targetPath: fullPath, bytes: stats.size });
+    }
+  };
+
+  prune(targetDir);
+  return { keptFiles, deletedFiles };
+}
+
+function listDownloadedApprovalFolders() {
+  if (!fs.existsSync(DOWNLOAD_DIR)) return { total: 0, items: [] };
+
+  const items = fs.readdirSync(DOWNLOAD_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const { targetDir, files } = listDownloadedFilesForApproval(entry.name);
+      const bytes = files.reduce((sum, file) => sum + Number(file.bytes || 0), 0);
+      return { approvalNumber: entry.name, targetDir, fileCount: files.length, bytes };
+    })
+    .filter((item) => item.fileCount > 0)
+    .sort((a, b) => a.approvalNumber.localeCompare(b.approvalNumber));
+
+  return { total: items.length, items };
+}
+
+function clearDownloadDirectory() {
+  fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
+  const before = listDownloadedApprovalFolders();
+
+  for (const entry of fs.readdirSync(DOWNLOAD_DIR, { withFileTypes: true })) {
+    fs.rmSync(path.join(DOWNLOAD_DIR, entry.name), { recursive: true, force: true });
+  }
+
+  return { clearedCount: before.total, before };
+}
+
+const CRC32_TABLE = Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit += 1) {
+    value = value & 1 ? 0xEDB88320 ^ (value >>> 1) : value >>> 1;
+  }
+  return value >>> 0;
+});
+
+function crc32(buffer) {
+  let crc = 0xFFFFFFFF;
+  for (const byte of buffer) {
+    crc = CRC32_TABLE[(crc ^ byte) & 0xFF] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function dosDateTime(date = new Date()) {
+  const year = Math.max(1980, date.getFullYear());
+  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const day = (year - 1980) << 9 | (date.getMonth() + 1) << 5 | date.getDate();
+  return { time, day };
+}
+
+function collectFilesForArchive(approvalNumbers = []) {
+  const files = [];
+  const seenNames = new Set();
+
+  for (const approvalNumber of approvalNumbers.map(toSafeApprovalFolderName)) {
+    const folder = path.join(DOWNLOAD_DIR, approvalNumber);
+    if (!fs.existsSync(folder)) continue;
+
+    const collect = (currentDir) => {
+      for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+        const fullPath = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          collect(fullPath);
+          continue;
+        }
+
+        const stats = fs.statSync(fullPath);
+        if (stats.size <= 0) continue;
+        const relative = path.relative(folder, fullPath).split(path.sep).join('/');
+        const zipName = `${approvalNumber}/${relative}`;
+        if (seenNames.has(zipName)) continue;
+        seenNames.add(zipName);
+        files.push({ fullPath, zipName, stats });
+      }
+    };
+
+    collect(folder);
+  }
+
+  return files;
+}
+
+function createZipBuffer(files) {
+  const chunks = [];
+  const centralDirectory = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const data = fs.readFileSync(file.fullPath);
+    const name = Buffer.from(file.zipName, 'utf8');
+    const checksum = crc32(data);
+    const { time, day } = dosDateTime(file.stats.mtime);
+
+    const localHeader = Buffer.alloc(30);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0x0800, 6);
+    localHeader.writeUInt16LE(0, 8);
+    localHeader.writeUInt16LE(time, 10);
+    localHeader.writeUInt16LE(day, 12);
+    localHeader.writeUInt32LE(checksum, 14);
+    localHeader.writeUInt32LE(data.length, 18);
+    localHeader.writeUInt32LE(data.length, 22);
+    localHeader.writeUInt16LE(name.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+
+    chunks.push(localHeader, name, data);
+
+    const centralHeader = Buffer.alloc(46);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(0x0800, 8);
+    centralHeader.writeUInt16LE(0, 10);
+    centralHeader.writeUInt16LE(time, 12);
+    centralHeader.writeUInt16LE(day, 14);
+    centralHeader.writeUInt32LE(checksum, 16);
+    centralHeader.writeUInt32LE(data.length, 20);
+    centralHeader.writeUInt32LE(data.length, 24);
+    centralHeader.writeUInt16LE(name.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+    centralDirectory.push(centralHeader, name);
+
+    offset += localHeader.length + name.length + data.length;
+  }
+
+  const centralSize = centralDirectory.reduce((sum, chunk) => sum + chunk.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  end.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...chunks, ...centralDirectory, end]);
+}
+
 function parseApprovalListFile(buffer, filename) {
   const extension = path.extname(filename || '').toLowerCase();
   if (!['.csv', '.xlsx', '.xls'].includes(extension)) {
@@ -338,6 +558,32 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
   const startDate = String(orderStartDate || '').trim();
   const endDate = String(orderEndDate || '').trim();
   if (!value && !startDate && !endDate) throw new Error('조회 조건을 입력하세요.');
+
+  if (value) {
+    const existingDownloads = listDownloadedFilesForApproval(value);
+    if (existingDownloads.files.length > 0) {
+      const savedTo = path.join(ARTIFACT_DIR, 'approval-search-result.json');
+      const result = {
+        ok: true,
+        skippedExistingDownload: true,
+        value,
+        startDateValue: startDate,
+        endDateValue: endDate,
+        attachmentDownloads: {
+          targetDir: existingDownloads.targetDir,
+          files: existingDownloads.files,
+          downloadCount: existingDownloads.files.length,
+          observedDownloadCount: existingDownloads.files.length,
+          pendingDownloadCount: 0,
+          completed: true,
+          skippedExistingDownload: true
+        },
+        savedTo
+      };
+      fs.writeFileSync(savedTo, JSON.stringify({ at: new Date().toISOString(), approvalNumber: value, orderStartDate: startDate, orderEndDate: endDate, attempts: [{ ok: true, step: 'skipped-existing-download', ...result }] }, null, 2));
+      return result;
+    }
+  }
 
   const activePage = await ensurePage();
   const attempts = [];
@@ -670,7 +916,7 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
   };
 
   const downloadAttachmentFiles = async (approvalText) => {
-    const safeApproval = String(approvalText || value || 'unknown-approval').replace(/[^A-Za-z0-9._-]+/g, '_');
+    const safeApproval = toSafeApprovalFolderName(approvalText || value);
     const targetDir = path.join(DOWNLOAD_DIR, safeApproval);
     fs.mkdirSync(targetDir, { recursive: true });
 
@@ -703,17 +949,25 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
       const checkbox = await clickAttachmentPopupCheckbox();
       await activePage.waitForTimeout(500).catch(() => {});
       const downloadButton = await clickAttachmentPopupDownload();
-      const files = await waitForDownloadsToFinish(downloadRecords, Math.max(1, expectedCount));
-      const completed = files.length >= Math.max(1, expectedCount);
+      const downloadedFiles = await waitForDownloadsToFinish(downloadRecords, Math.max(1, expectedCount));
+      const cleanup = keepOnlyQuoteFilesInDirectory(targetDir);
+      const files = cleanup.keptFiles;
+      const completed = files.length > 0;
       const closedWindows = completed ? await closeAttachmentAndApprovalWindows() : null;
       return {
         targetDir,
         expectedCount,
+        quoteOnly: true,
+        requiredFileNameText: '견적',
         checkbox,
         downloadButton,
+        downloadedFiles,
         files,
+        deletedFiles: cleanup.deletedFiles,
         downloadCount: files.length,
+        rawDownloadCount: downloadedFiles.length,
         observedDownloadCount: downloadRecords.length,
+        deletedDownloadCount: cleanup.deletedFiles.length,
         pendingDownloadCount: downloadRecords.filter((record) => !record.done).length,
         completed,
         closedWindows
@@ -1672,6 +1926,45 @@ app.post('/api/dump-page', async (_req, res) => {
   } catch (error) {
     lastError = error.message;
     res.status(500).json(await getStatus());
+  }
+});
+
+app.get('/api/downloaded-approvals', async (_req, res) => {
+  try {
+    lastError = null;
+    res.json({ ...listDownloadedApprovalFolders(), ...(await getStatus()) });
+  } catch (error) {
+    lastError = error.message;
+    res.status(500).json(await getStatus());
+  }
+});
+
+app.post('/api/downloaded-approvals/clear', async (_req, res) => {
+  try {
+    lastError = null;
+    const cleared = clearDownloadDirectory();
+    res.json({ ...cleared, ...listDownloadedApprovalFolders(), ...(await getStatus()) });
+  } catch (error) {
+    lastError = error.message;
+    res.status(500).json(await getStatus());
+  }
+});
+
+app.post('/api/downloaded-approvals/archive', async (req, res) => {
+  try {
+    lastError = null;
+    const approvalNumbers = Array.isArray(req.body?.approvalNumbers) ? req.body.approvalNumbers : [];
+    if (!approvalNumbers.length) throw new Error('압축할 품의번호가 없습니다.');
+    const files = collectFilesForArchive(approvalNumbers);
+    if (!files.length) throw new Error('압축할 다운로드 파일이 없습니다.');
+    const archive = createZipBuffer(files);
+    res.setHeader('content-type', 'application/zip');
+    res.setHeader('content-disposition', 'attachment; filename="quotes.zip"');
+    res.setHeader('cache-control', 'no-store');
+    res.end(archive);
+  } catch (error) {
+    lastError = error.message;
+    res.status(400).json({ error: error.message, lastError });
   }
 });
 

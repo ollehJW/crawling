@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WIA Vaatz</title>
-    <link rel="stylesheet" href="/styles.css?v=20260730-1310" />
+    <link rel="stylesheet" href="/styles.css?v=20260730-1530" />
   </head>
   <body>
     <main class="app">
@@ -12,6 +12,7 @@
         <h1>WIA Vaatz</h1>
         <div class="actions single">
           <button id="wiaDirect">WIA Vaatz 직접 이동</button>
+          <button id="downloadedApprovalsButton" type="button">보유 품의서 보기</button>
           <button id="approvalListUploadButton" type="button">품의서 리스트 업로드</button>
           <input id="approvalListFileInput" type="file" accept=".csv,.xlsx,.xls" hidden />
           <div id="sidebarApprovalList" class="sidebar-approval-list" hidden>
@@ -21,7 +22,7 @@
             </div>
             <div id="sidebarApprovalRows" class="sidebar-list-rows"></div>
           </div>
-          <button id="clickApprovalNumber">품의번호 누르기</button>
+          <button id="clickApprovalNumber">견적서 다운로드</button>
           <button id="dumpOpenPages">열린 창 저장</button>
           <button id="dumpPage">화면 분석 저장</button>
         </div>
@@ -31,9 +32,11 @@
           <dt>상태</dt>
           <dd id="state">대기</dd>
         </dl>
+        <button id="stopAutomation" class="stop-button" type="button" hidden>중단</button>
       </aside>
-      <section class="viewport">
+      <section id="viewport" class="viewport">
         <img id="screen" alt="WIA Vaatz browser screen" draggable="false" />
+        <div id="interactionLock" class="interaction-lock" hidden>자동화 진행 중</div>
       </section>
     </main>
     <div id="vaatzLoginModal" class="modal" hidden>
@@ -52,6 +55,47 @@
           <button type="submit">확인</button>
         </div>
       </form>
+    </div>
+    <div id="completionModal" class="modal" hidden>
+      <div class="modal-dialog completion-dialog">
+        <h2 id="completionTitle">완료</h2>
+        <p id="completionMessage" class="completion-message"></p>
+        <div id="completionDownloads" class="modal-actions completion-download-actions" hidden>
+          <button id="downloadResultCsv" type="button">결과 정리서 다운</button>
+          <button id="downloadQuotesZip" type="button">견적서 다운</button>
+        </div>
+        <div class="modal-actions single-action">
+          <button id="completionOk" type="button">확인</button>
+        </div>
+      </div>
+    </div>
+    <div id="downloadedApprovalsModal" class="modal" hidden>
+      <div class="modal-dialog approval-list-dialog">
+        <div class="modal-header">
+          <h2>보유 품의서</h2>
+          <button id="downloadedApprovalsClose" type="button" class="icon-button" aria-label="닫기">×</button>
+        </div>
+        <div class="approval-summary">
+          <span>총 건수</span>
+          <strong id="downloadedApprovalsTotal">0</strong>
+        </div>
+        <div class="approval-list-table-wrap">
+          <table class="approval-list-table">
+            <thead>
+              <tr>
+                <th>품의번호</th>
+                <th>파일수</th>
+                <th>용량</th>
+              </tr>
+            </thead>
+            <tbody id="downloadedApprovalsRows"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions approval-list-actions">
+          <button id="downloadedApprovalsClear" type="button" class="danger-button">초기화</button>
+          <button id="downloadedApprovalsOk" type="button">확인</button>
+        </div>
+      </div>
     </div>
     <div id="approvalListModal" class="modal" hidden>
       <div class="modal-dialog approval-list-dialog">
@@ -81,6 +125,6 @@
         </div>
       </div>
     </div>
-    <script src="/app.js?v=20260730-1310"></script>
+    <script src="/app.js?v=20260730-1530"></script>
   </body>
 </html>

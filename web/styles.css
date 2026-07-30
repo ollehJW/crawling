@@ -339,3 +339,80 @@ button:hover {
 .approval-list-actions {
   margin-top: 0;
 }
+
+.single-action {
+  grid-template-columns: 1fr;
+}
+
+.completion-dialog {
+  width: min(420px, 100%);
+}
+
+.completion-message {
+  margin: 0;
+  color: #d7e0e6;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.danger-button {
+  border-color: #7a3b3b;
+  background: #4b2323;
+}
+
+.danger-button:hover {
+  background: #623030;
+}
+
+.viewport {
+  position: relative;
+}
+
+.viewport.locked #screen {
+  pointer-events: none;
+}
+
+.interaction-lock {
+  position: absolute;
+  inset: 16px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(215, 224, 230, 0.28);
+  background: rgba(11, 15, 19, 0.34);
+  color: #f6f9fb;
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: all;
+}
+
+.interaction-lock[hidden] {
+  display: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.stop-button {
+  width: 100%;
+  margin-top: 12px;
+  border-color: #8a4242;
+  background: #5a2727;
+}
+
+.stop-button:hover {
+  background: #713232;
+}
+
+.stop-button[hidden] {
+  display: none;
+}
+
+.completion-download-actions[hidden] {
+  display: none;
+}
+
+.completion-download-actions {
+  grid-template-columns: 1fr 1fr;
+}
