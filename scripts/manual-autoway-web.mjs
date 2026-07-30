@@ -621,22 +621,52 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
     return 1;
   };
 
-  const waitForDownloadsToFinish = async (downloadRecords, expectedCount = 1) => {
-    const deadline = Date.now() + 120000;
-    let quietSince = 0;
+  const waitForFileStable = async (filePath, { timeout = 60000, stableMs = 3000 } = {}) => {
+    const deadline = Date.now() + timeout;
+    let previousSize = -1;
+    let stableSince = 0;
 
     while (Date.now() < deadline) {
-      const completed = downloadRecords.filter((record) => record.savedTo && !record.error);
-      if (completed.length >= expectedCount) {
-        if (!quietSince) quietSince = Date.now();
-        if (Date.now() - quietSince >= 3000) return completed;
+      const stats = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
+      const nextSize = stats ? stats.size : -1;
+
+      if (nextSize > 0 && nextSize === previousSize) {
+        if (!stableSince) stableSince = Date.now();
+        if (Date.now() - stableSince >= stableMs) return nextSize;
       } else {
-        quietSince = 0;
+        stableSince = 0;
+        previousSize = nextSize;
       }
+
       await activePage.waitForTimeout(500).catch(() => {});
     }
 
-    return downloadRecords.filter((record) => record.savedTo && !record.error);
+    throw new Error(`다운로드 파일 안정화 시간 초과: ${path.basename(filePath)}`);
+  };
+
+  const waitForDownloadsToFinish = async (downloadRecords, expectedCount = 1) => {
+    const minimumCount = Math.max(1, expectedCount);
+    const deadline = Date.now() + 600000;
+    let quietSince = 0;
+
+    while (Date.now() < deadline) {
+      const settled = downloadRecords.filter((record) => record.done);
+      const completed = settled.filter((record) => record.savedTo && record.stable && !record.error);
+      const hasEnoughEvents = downloadRecords.length >= minimumCount;
+      const allObservedFinished = downloadRecords.length > 0 && settled.length === downloadRecords.length;
+
+      if (hasEnoughEvents && allObservedFinished && completed.length >= minimumCount) {
+        if (!quietSince) quietSince = Date.now();
+        if (Date.now() - quietSince >= 5000) return completed;
+      } else {
+        quietSince = 0;
+      }
+
+      await activePage.waitForTimeout(500).catch(() => {});
+    }
+
+    await Promise.allSettled(downloadRecords.map((record) => record.promise).filter(Boolean));
+    return downloadRecords.filter((record) => record.savedTo && record.stable && !record.error);
   };
 
   const downloadAttachmentFiles = async (approvalText) => {
@@ -645,18 +675,24 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
     fs.mkdirSync(targetDir, { recursive: true });
 
     const downloadRecords = [];
-    const onDownload = async (download) => {
+    const onDownload = (download) => {
       const suggested = download.suggestedFilename();
       const targetPath = path.join(targetDir, suggested);
-      const record = { suggested, targetPath };
+      const record = { suggested, targetPath, done: false, stable: false };
       downloadRecords.push(record);
-      try {
-        await download.saveAs(targetPath);
-        record.savedTo = targetPath;
-        record.bytes = fs.statSync(targetPath).size;
-      } catch (error) {
-        record.error = error.message;
-      }
+      record.promise = (async () => {
+        try {
+          await download.saveAs(targetPath);
+          record.savedTo = targetPath;
+          record.bytes = await waitForFileStable(targetPath);
+          record.stable = true;
+          record.completedAt = new Date().toISOString();
+        } catch (error) {
+          record.error = error.message;
+        } finally {
+          record.done = true;
+        }
+      })();
     };
 
     downloadOverrideDepth += 1;
@@ -670,7 +706,18 @@ async function searchApprovalNumber({ approvalNumber, orderStartDate, orderEndDa
       const files = await waitForDownloadsToFinish(downloadRecords, Math.max(1, expectedCount));
       const completed = files.length >= Math.max(1, expectedCount);
       const closedWindows = completed ? await closeAttachmentAndApprovalWindows() : null;
-      return { targetDir, expectedCount, checkbox, downloadButton, files, downloadCount: files.length, completed, closedWindows };
+      return {
+        targetDir,
+        expectedCount,
+        checkbox,
+        downloadButton,
+        files,
+        downloadCount: files.length,
+        observedDownloadCount: downloadRecords.length,
+        pendingDownloadCount: downloadRecords.filter((record) => !record.done).length,
+        completed,
+        closedWindows
+      };
     } finally {
       activePage.off('download', onDownload);
       downloadOverrideDepth = Math.max(0, downloadOverrideDepth - 1);
@@ -1169,10 +1216,43 @@ async function clickVaatzPartOrderProgressMenu() {
 
 async function clearPartOrderProgressDefaultFields() {
   const activePage = await ensurePage();
-  await activePage.waitForTimeout(3000).catch(() => {});
-
   const attempts = [];
   const selectAllShortcut = process.platform === 'darwin' ? 'Meta+A' : 'Control+A';
+
+  const waitForProgressScreenReady = async ({ timeout = 45000, settleDelay = 2000 } = {}) => {
+    const deadline = Date.now() + timeout;
+
+    while (Date.now() < deadline) {
+      for (const frame of activePage.frames()) {
+        const fieldReady = await frame.evaluate(() => {
+          const isVisible = (element) => {
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+          };
+          const fields = [...document.querySelectorAll('input[id*="edt_userDept:input"], input[id*="edt_userId:input"]')];
+          return fields.some(isVisible);
+        }).catch(() => false);
+        if (fieldReady) {
+          await activePage.waitForTimeout(settleDelay).catch(() => {});
+          return { ok: true, trigger: 'default-field-visible', frameUrl: frame.url(), settleDelay };
+        }
+
+        const titleReady = await frame.evaluate(() => {
+          const text = document.body ? document.body.innerText || document.body.textContent || '' : '';
+          return text.includes('품번별 발주 진행현황');
+        }).catch(() => false);
+        if (titleReady) {
+          await activePage.waitForTimeout(settleDelay).catch(() => {});
+          return { ok: true, trigger: 'screen-title-visible', frameUrl: frame.url(), settleDelay };
+        }
+      }
+
+      await activePage.waitForTimeout(500).catch(() => {});
+    }
+
+    return { ok: false, reason: 'progress-screen-not-ready', timeout };
+  };
 
   const clearLocator = async (locator, frame, fieldName) => {
     const box = await locator.boundingBox().catch(() => null);
@@ -1229,6 +1309,13 @@ async function clearPartOrderProgressDefaultFields() {
     await activePage.waitForTimeout(150).catch(() => {});
     return { fieldName, method: 'fixed-coordinate-keyboard', x, y };
   };
+
+  const screenReady = await waitForProgressScreenReady();
+  attempts.push({ screenReady });
+  if (!screenReady.ok) {
+    fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-part-order-progress-clear-defaults-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts }, null, 2));
+    return { ok: false, reason: screenReady.reason, screenReady };
+  }
 
   const deadline = Date.now() + 10000;
   while (Date.now() < deadline) {

@@ -6,9 +6,6 @@ const vaatzLoginForm = document.querySelector('#vaatzLoginForm');
 const vaatzLoginCancel = document.querySelector('#vaatzLoginCancel');
 const vaatzIdInput = document.querySelector('#vaatzIdInput');
 const vaatzPasswordInput = document.querySelector('#vaatzPasswordInput');
-const approvalNumberInput = document.querySelector('#approvalNumberInput');
-const orderStartDateInput = document.querySelector('#orderStartDateInput');
-const orderEndDateInput = document.querySelector('#orderEndDateInput');
 const approvalListUploadButton = document.querySelector('#approvalListUploadButton');
 const approvalListFileInput = document.querySelector('#approvalListFileInput');
 const approvalListModal = document.querySelector('#approvalListModal');
@@ -75,8 +72,14 @@ function closeApprovalListModal() {
   approvalListModal.hidden = true;
 }
 
+function getProgressText(progress) {
+  if (progress === 'ok') return 'O';
+  if (progress === 'fail') return 'X';
+  return '-';
+}
+
 function renderSidebarApprovalList(items) {
-  confirmedApprovalList = [...items];
+  confirmedApprovalList = items.map((item) => ({ ...item, progress: item.progress || 'pending' }));
   sidebarApprovalTotal.textContent = String(confirmedApprovalList.length);
   sidebarApprovalRows.replaceChildren();
 
@@ -89,8 +92,9 @@ function renderSidebarApprovalList(items) {
     approvalNumber.textContent = item.approvalNumber || '';
 
     const status = document.createElement('span');
-    status.className = 'progress-mark pending';
-    status.textContent = '-';
+    const progress = item.progress || 'pending';
+    status.className = `progress-mark ${progress}`;
+    status.textContent = getProgressText(progress);
     status.dataset.approvalNumber = item.approvalNumber || '';
 
     row.append(approvalNumber, status);
@@ -198,25 +202,77 @@ vaatzLoginForm.addEventListener('submit', async (event) => {
   startRefresh();
 });
 
-document.querySelector('#clickApprovalNumber').addEventListener('click', async () => {
-  const approvalNumber = approvalNumberInput.value.trim();
-  const orderStartDate = orderStartDateInput.value.trim();
-  const orderEndDate = orderEndDateInput.value.trim();
+function getOrderDateRange(orderDateValue) {
+  const date = new Date(`${orderDateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) throw new Error(`발주일 형식 오류: ${orderDateValue}`);
 
-  if (!approvalNumber && !orderStartDate && !orderEndDate) {
-    stateEl.textContent = '조회 조건을 입력하세요';
-    approvalNumberInput.focus();
+  const startDate = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+  const endDate = new Date(date.getFullYear(), date.getMonth() + 2, 0);
+  const formatDate = (targetDate) => {
+    const year = targetDate.getFullYear();
+    const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const day = String(targetDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  return {
+    orderStartDate: formatDate(startDate),
+    orderEndDate: formatDate(endDate)
+  };
+}
+
+function setApprovalProgress(index, progress) {
+  if (!confirmedApprovalList[index]) return;
+  confirmedApprovalList[index].progress = progress;
+
+  const mark = sidebarApprovalRows.children[index]?.querySelector('.progress-mark');
+  if (!mark) return;
+  mark.className = `progress-mark ${progress}`;
+  mark.textContent = getProgressText(progress);
+}
+
+function isSearchDownloadSuccessful(result) {
+  const downloads = result?.searched?.attachmentDownloads;
+  return Boolean(
+    result?.searched?.ok
+      && !result.searched.noResult
+      && downloads?.completed
+      && downloads.downloadCount > 0
+  );
+}
+
+document.querySelector('#clickApprovalNumber').addEventListener('click', async () => {
+  if (!confirmedApprovalList.length) {
+    stateEl.textContent = '품의서 리스트를 업로드하고 확인하세요';
     return;
   }
 
-  stateEl.textContent = '조회 조건 반영 중';
-  const result = await api('/api/search-approval-number', {
-    method: 'POST',
-    body: JSON.stringify({ approvalNumber, orderStartDate, orderEndDate })
-  });
-  const searchedValue = result.searched && result.searched.value ? result.searched.value : approvalNumber || '날짜 조건';
-  stateEl.textContent = `조회 완료: ${searchedValue}`;
-  startRefresh();
+  for (let index = 0; index < confirmedApprovalList.length; index += 1) {
+    const item = confirmedApprovalList[index];
+    setApprovalProgress(index, 'pending');
+
+    try {
+      const { orderStartDate, orderEndDate } = getOrderDateRange(item.orderDate);
+      stateEl.textContent = `진행 중: ${item.approvalNumber} (${index + 1}/${confirmedApprovalList.length})`;
+      const result = await api('/api/search-approval-number', {
+        method: 'POST',
+        body: JSON.stringify({
+          approvalNumber: item.approvalNumber,
+          orderStartDate,
+          orderEndDate
+        })
+      });
+      setApprovalProgress(index, isSearchDownloadSuccessful(result) ? 'ok' : 'fail');
+      startRefresh();
+    } catch (error) {
+      setApprovalProgress(index, 'fail');
+      stateEl.textContent = `${item.approvalNumber || index + 1} 실패: ${error.message}`;
+      startRefresh();
+    }
+  }
+
+  const successCount = confirmedApprovalList.filter((item) => item.progress === 'ok').length;
+  stateEl.textContent = `품의서 리스트 진행 완료: ${successCount}/${confirmedApprovalList.length}`;
 });
 
 document.querySelector('#dumpOpenPages').addEventListener('click', async () => {
