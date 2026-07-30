@@ -894,6 +894,423 @@ async function openGlobalVaatzDirect() {
   return page.url();
 }
 
+async function expandVaatzPurchaseManagementSideMenu() {
+  const activePage = await ensurePage();
+  const deadline = Date.now() + 15000;
+  const attempts = [];
+
+  const clickLocator = async (locator, frame) => {
+    if (!(await locator.count().catch(() => 0))) return null;
+    const box = await locator.boundingBox().catch(() => null);
+    if (!box || box.width <= 0 || box.height <= 0) return null;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await activePage.mouse.move(x, y);
+    await activePage.waitForTimeout(100).catch(() => {});
+    await activePage.mouse.down({ button: 'left' });
+    await activePage.waitForTimeout(120).catch(() => {});
+    await activePage.mouse.up({ button: 'left' });
+    await activePage.waitForTimeout(800).catch(() => {});
+    return {
+      method: 'dom',
+      frameUrl: frame.url(),
+      id: await locator.evaluate((element) => element.id || '').catch(() => ''),
+      userstatus: await locator.evaluate((element) => element.getAttribute('userstatus') || '').catch(() => ''),
+      x: Math.round(x),
+      y: Math.round(y)
+    };
+  };
+
+  while (Date.now() < deadline) {
+    for (const frame of activePage.frames()) {
+      const candidates = [
+        frame.locator('[id$="grdTree.body.gridrow_5.cell_5_0.celltreeitem.treeitembutton"]').first(),
+        frame.locator('[id*="grdTree.body.gridrow_5"][id*="treeitembutton"]').first(),
+        frame.locator('[class*="treeitembutton"][userstatus="collapse"]').filter({ hasNotText: '' }).first()
+      ];
+      for (const locator of candidates) {
+        const clicked = await clickLocator(locator, frame);
+        if (clicked) {
+          const result = { ok: true, ...clicked };
+          await activePage.waitForTimeout(1000).catch(() => {});
+          result.purchaseSubMenu = await expandVaatzPurchaseSideSubMenu();
+          fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-purchase-side-menu-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts: [...attempts, result] }, null, 2));
+          return result;
+        }
+      }
+    }
+    await activePage.waitForTimeout(500).catch(() => {});
+  }
+
+  const viewport = activePage.viewportSize() || { width: 1365, height: 900 };
+  const x = Math.round(viewport.width * (15 / 1365));
+  const y = Math.round(viewport.height * (367 / 900));
+  await activePage.mouse.click(x, y);
+  await activePage.waitForTimeout(800).catch(() => {});
+  const result = { ok: true, method: 'fixed-coordinate', id: 'purchase-side-menu-plus-fallback', x, y };
+  await activePage.waitForTimeout(1000).catch(() => {});
+  result.purchaseSubMenu = await expandVaatzPurchaseSideSubMenu();
+  fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-purchase-side-menu-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts: [...attempts, result] }, null, 2));
+  return result;
+}
+
+async function expandVaatzPurchaseSideSubMenu() {
+  const activePage = await ensurePage();
+  const deadline = Date.now() + 15000;
+  const attempts = [];
+
+  const clickLocator = async (locator, frame) => {
+    if (!(await locator.count().catch(() => 0))) return null;
+    const box = await locator.boundingBox().catch(() => null);
+    if (!box || box.width <= 0 || box.height <= 0) return null;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await activePage.mouse.move(x, y);
+    await activePage.waitForTimeout(100).catch(() => {});
+    await activePage.mouse.down({ button: 'left' });
+    await activePage.waitForTimeout(120).catch(() => {});
+    await activePage.mouse.up({ button: 'left' });
+    await activePage.waitForTimeout(800).catch(() => {});
+    return {
+      method: 'dom',
+      frameUrl: frame.url(),
+      id: await locator.evaluate((element) => element.id || '').catch(() => ''),
+      userstatus: await locator.evaluate((element) => element.getAttribute('userstatus') || '').catch(() => ''),
+      x: Math.round(x),
+      y: Math.round(y)
+    };
+  };
+
+  while (Date.now() < deadline) {
+    for (const frame of activePage.frames()) {
+      const candidates = [
+        frame.locator('[id$="grdTree.body.gridrow_6.cell_6_0.celltreeitem.treeitembutton"]').first(),
+        frame.locator('[id*="grdTree.body.gridrow_6"][id*="treeitembutton"]').first()
+      ];
+      for (const locator of candidates) {
+        const clicked = await clickLocator(locator, frame);
+        if (clicked) {
+          const result = { ok: true, ...clicked };
+          await activePage.waitForTimeout(1000).catch(() => {});
+          result.partOrderProgressMenu = await clickVaatzPartOrderProgressMenu();
+          fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-purchase-sub-menu-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts: [...attempts, result] }, null, 2));
+          return result;
+        }
+      }
+    }
+    await activePage.waitForTimeout(500).catch(() => {});
+  }
+
+  const viewport = activePage.viewportSize() || { width: 1365, height: 900 };
+  const x = Math.round(viewport.width * (23 / 1365));
+  const y = Math.round(viewport.height * (402 / 900));
+  await activePage.mouse.click(x, y);
+  await activePage.waitForTimeout(800).catch(() => {});
+  const result = { ok: true, method: 'fixed-coordinate', id: 'purchase-sub-menu-plus-fallback', x, y };
+  await activePage.waitForTimeout(1000).catch(() => {});
+  result.partOrderProgressMenu = await clickVaatzPartOrderProgressMenu();
+  fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-purchase-sub-menu-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts: [...attempts, result] }, null, 2));
+  return result;
+}
+
+async function clickVaatzPartOrderProgressMenu() {
+  const activePage = await ensurePage();
+  const deadline = Date.now() + 15000;
+  const attempts = [];
+
+  const clickLocator = async (locator, frame) => {
+    if (!(await locator.count().catch(() => 0))) return null;
+    const box = await locator.boundingBox().catch(() => null);
+    if (!box || box.width <= 0 || box.height <= 0) return null;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await activePage.mouse.move(x, y);
+    await activePage.waitForTimeout(100).catch(() => {});
+    await activePage.mouse.down({ button: 'left' });
+    await activePage.waitForTimeout(120).catch(() => {});
+    await activePage.mouse.up({ button: 'left' });
+    await activePage.waitForTimeout(1200).catch(() => {});
+    return {
+      method: 'dom',
+      frameUrl: frame.url(),
+      id: await locator.evaluate((element) => element.id || '').catch(() => ''),
+      text: await locator.evaluate((element) => (element.innerText || element.textContent || '').trim()).catch(() => ''),
+      x: Math.round(x),
+      y: Math.round(y)
+    };
+  };
+
+  while (Date.now() < deadline) {
+    for (const frame of activePage.frames()) {
+      const candidates = [
+        frame.locator('[id$="grdTree.body.gridrow_10.cell_10_0.celltreeitem.treeitemtext"]').first(),
+        frame.locator('[id$="grdTree.body.gridrow_10.cell_10_0.celltreeitem"]').first(),
+        frame.locator('[id*="grdTree.body.gridrow_10"]').filter({ hasText: '품번별 발주 진행현황' }).first(),
+        frame.getByText('품번별 발주 진행현황', { exact: true }).first()
+      ];
+      for (const locator of candidates) {
+        const clicked = await clickLocator(locator, frame);
+        if (clicked) {
+          const result = { ok: true, ...clicked };
+          result.clearedDefaults = await clearPartOrderProgressDefaultFields();
+          fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-part-order-progress-menu-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts: [...attempts, result] }, null, 2));
+          return result;
+        }
+      }
+    }
+    await activePage.waitForTimeout(500).catch(() => {});
+  }
+
+  const viewport = activePage.viewportSize() || { width: 1365, height: 900 };
+  const x = Math.round(viewport.width * (141 / 1365));
+  const y = Math.round(viewport.height * (542 / 900));
+  await activePage.mouse.click(x, y);
+  await activePage.waitForTimeout(1200).catch(() => {});
+  const result = { ok: true, method: 'fixed-coordinate', id: 'part-order-progress-menu-fallback', text: '품번별 발주 진행현황', x, y };
+  result.clearedDefaults = await clearPartOrderProgressDefaultFields();
+  fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-part-order-progress-menu-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts: [...attempts, result] }, null, 2));
+  return result;
+}
+
+async function clearPartOrderProgressDefaultFields() {
+  const activePage = await ensurePage();
+  await activePage.waitForTimeout(3000).catch(() => {});
+
+  const attempts = [];
+  const selectAllShortcut = process.platform === 'darwin' ? 'Meta+A' : 'Control+A';
+
+  const clearLocator = async (locator, frame, fieldName) => {
+    const box = await locator.boundingBox().catch(() => null);
+    if (!box || box.width <= 0 || box.height <= 0) return null;
+    const before = await locator.inputValue().catch(() => '');
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await activePage.mouse.click(x, y);
+    await activePage.waitForTimeout(100).catch(() => {});
+    await activePage.keyboard.press(selectAllShortcut).catch(() => {});
+    await activePage.keyboard.press('Backspace').catch(() => {});
+    await locator.evaluate((element) => {
+      element.value = '';
+      const options = { bubbles: true, cancelable: true, composed: true };
+      element.dispatchEvent(new Event('input', options));
+      element.dispatchEvent(new Event('change', options));
+      element.dispatchEvent(new KeyboardEvent('keydown', { ...options, key: 'Backspace' }));
+      element.dispatchEvent(new KeyboardEvent('keyup', { ...options, key: 'Backspace' }));
+      element.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+    }).catch(() => {});
+    await activePage.waitForTimeout(150).catch(() => {});
+    const after = await locator.inputValue().catch(() => '');
+    return {
+      fieldName,
+      method: 'visible-dom-and-keyboard',
+      frameUrl: frame.url(),
+      id: await locator.evaluate((element) => element.id || '').catch(() => ''),
+      before,
+      after,
+      x: Math.round(x),
+      y: Math.round(y)
+    };
+  };
+
+  const clearField = async (frame, fieldName) => {
+    const locators = frame.locator(`input[id$="${fieldName}:input"], input[id*="${fieldName}:input"]`);
+    const count = await locators.count().catch(() => 0);
+    for (let index = count - 1; index >= 0; index -= 1) {
+      const cleared = await clearLocator(locators.nth(index), frame, fieldName);
+      if (cleared) return cleared;
+    }
+    return null;
+  };
+
+  const clearAtCoordinate = async (fieldName, baseX, baseY) => {
+    const viewport = activePage.viewportSize() || { width: 1365, height: 900 };
+    const x = Math.round(viewport.width * (baseX / 1365));
+    const y = Math.round(viewport.height * (baseY / 900));
+    await activePage.mouse.click(x, y);
+    await activePage.waitForTimeout(120).catch(() => {});
+    await activePage.keyboard.press(selectAllShortcut).catch(() => {});
+    await activePage.keyboard.press('Backspace').catch(() => {});
+    await activePage.keyboard.press('Tab').catch(() => {});
+    await activePage.waitForTimeout(150).catch(() => {});
+    return { fieldName, method: 'fixed-coordinate-keyboard', x, y };
+  };
+
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const fields = [];
+    for (const frame of activePage.frames()) {
+      const userDept = await clearField(frame, 'edt_userDept');
+      const userId = await clearField(frame, 'edt_userId');
+      if (userDept) fields.push(userDept);
+      if (userId) fields.push(userId);
+    }
+
+    // Nexacro can display component state even when the backing input value is empty.
+    // Clear the visible boxes by coordinates as a final, deterministic pass.
+    fields.push(await clearAtCoordinate('edt_userDept', 681, 160));
+    fields.push(await clearAtCoordinate('edt_userId', 797, 160));
+
+    const result = { ok: true, fields };
+    attempts.push(result);
+    fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-part-order-progress-clear-defaults-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts }, null, 2));
+    return result;
+  }
+
+  const result = { ok: false, reason: 'fields-not-found' };
+  attempts.push(result);
+  fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-part-order-progress-clear-defaults-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts }, null, 2));
+  return result;
+}
+
+async function clickVaatzPurchaseManagement() {
+  const activePage = await ensurePage();
+  const deadline = Date.now() + 30000;
+  const attempts = [];
+
+  const clickCandidate = async (locator) => {
+    if (!(await locator.count().catch(() => 0))) return null;
+    const target = await locator.evaluateHandle((element) => {
+      const id = element.id || '';
+      return id.includes(':icontext') ? element.parentElement || element : element;
+    }).catch(() => null);
+    if (!target) return null;
+    const box = await target.asElement().boundingBox().catch(() => null);
+    if (!box || box.width <= 0 || box.height <= 0) return null;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await activePage.mouse.move(x, y);
+    await activePage.waitForTimeout(100).catch(() => {});
+    await activePage.mouse.down({ button: 'left' });
+    await activePage.waitForTimeout(120).catch(() => {});
+    await activePage.mouse.up({ button: 'left' });
+    await activePage.waitForTimeout(800).catch(() => {});
+    return {
+      id: await target.evaluate((element) => element.id || '').catch(() => ''),
+      text: await target.evaluate((element) => (element.innerText || element.textContent || '').trim()).catch(() => ''),
+      x: Math.round(x),
+      y: Math.round(y)
+    };
+  };
+
+  while (Date.now() < deadline) {
+    for (const frame of activePage.frames()) {
+      const candidates = [
+        frame.locator('[id$="TOP_GPMS_D"]').first(),
+        frame.locator('[id*="TOP_GPMS_D"]').filter({ hasNot: frame.locator('[id$=":icontext"]') }).first(),
+        frame.locator('[id*="TOP_GPMS_D:icontext"]').first(),
+        frame.getByText(/발주\s*관리/).first()
+      ];
+      for (const locator of candidates) {
+        const clicked = await clickCandidate(locator);
+        if (clicked) {
+          const result = { ok: true, method: 'dom', frameUrl: frame.url(), ...clicked };
+          await activePage.waitForTimeout(1000).catch(() => {});
+          result.sideMenu = await expandVaatzPurchaseManagementSideMenu();
+          fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-purchase-menu-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts: [...attempts, result] }, null, 2));
+          return result;
+        }
+      }
+    }
+    await activePage.waitForTimeout(750).catch(() => {});
+  }
+
+  const viewport = activePage.viewportSize() || { width: 1365, height: 900 };
+  const x = Math.round(viewport.width * (421 / 1365));
+  const y = Math.round(viewport.height * (72 / 900));
+  await activePage.mouse.click(x, y);
+  const result = { ok: true, method: 'fixed-coordinate', id: 'TOP_GPMS_D-fallback', text: '발주 관리', x, y };
+  await activePage.waitForTimeout(1000).catch(() => {});
+  result.sideMenu = await expandVaatzPurchaseManagementSideMenu();
+  fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-purchase-menu-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts: [...attempts, result] }, null, 2));
+  return result;
+}
+
+async function loginVaatzIfLoginScreen({ vaatzId, vaatzPassword } = {}) {
+  const idValue = String(vaatzId || '').trim();
+  const passwordValue = String(vaatzPassword || '');
+  if (!idValue || !passwordValue) return null;
+
+  const activePage = await ensurePage();
+  const deadline = Date.now() + 45000;
+  const attempts = [];
+
+  const fillLoginInput = async (locator, nextValue, label) => {
+    await locator.scrollIntoViewIfNeeded().catch(() => {});
+    await locator.click({ timeout: 3000, force: true });
+    await activePage.waitForTimeout(100).catch(() => {});
+    await activePage.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await activePage.keyboard.press('Backspace').catch(() => {});
+    await activePage.keyboard.type(nextValue, { delay: 25 });
+    await locator.evaluate((element) => {
+      const options = { bubbles: true, cancelable: true, composed: true };
+      element.dispatchEvent(new Event('input', options));
+      element.dispatchEvent(new Event('change', options));
+    }).catch(() => {});
+    await activePage.waitForTimeout(150).catch(() => {});
+    return {
+      label,
+      id: await locator.evaluate((element) => element.id || '').catch(() => ''),
+      actualValue: await locator.inputValue().catch(() => '')
+    };
+  };
+
+  const clickLoginButton = async (frame) => {
+    const candidates = [
+      frame.locator('[id$="btnLogin"]').first(),
+      frame.locator('[id*="btnLogin"]').filter({ hasNot: frame.locator('[id$=":icontext"]') }).first(),
+      frame.locator('[id*="btnLogin:icontext"]').first(),
+      frame.getByText('Login', { exact: true }).first()
+    ];
+
+    for (const locator of candidates) {
+      if (!(await locator.count().catch(() => 0))) continue;
+      const target = await locator.evaluateHandle((element) => {
+        const id = element.id || '';
+        return id.includes(':icontext') ? element.parentElement || element : element;
+      }).catch(() => null);
+      if (!target) continue;
+      const box = await target.asElement().boundingBox().catch(() => null);
+      if (!box || box.width <= 0 || box.height <= 0) continue;
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await activePage.mouse.move(x, y);
+      await activePage.waitForTimeout(100).catch(() => {});
+      await activePage.mouse.down({ button: 'left' });
+      await activePage.waitForTimeout(120).catch(() => {});
+      await activePage.mouse.up({ button: 'left' });
+      await activePage.waitForTimeout(500).catch(() => {});
+      return { id: await target.evaluate((element) => element.id || '').catch(() => ''), x: Math.round(x), y: Math.round(y) };
+    }
+    return null;
+  };
+
+  while (Date.now() < deadline) {
+    for (const frame of activePage.frames()) {
+      const idInput = frame.locator('input[id$="edtId:input"], input[id*="edtId:input"]').first();
+      const passwordInput = frame.locator('input[id$="edtPwd:input"], input[id*="edtPwd:input"], input[type="password"]').first();
+      const hasId = await idInput.count().catch(() => 0);
+      const hasPassword = await passwordInput.count().catch(() => 0);
+      if (!hasId || !hasPassword) continue;
+
+      const idFilled = await fillLoginInput(idInput, idValue, 'vaatzId');
+      await activePage.keyboard.press('Tab').catch(() => {});
+      const passwordFilled = await fillLoginInput(passwordInput, passwordValue, 'vaatzPassword');
+      const loginButton = await clickLoginButton(frame);
+      const result = { ok: !!loginButton, frameUrl: frame.url(), idFilled, passwordFilled: { ...passwordFilled, actualValue: passwordFilled.actualValue ? '********' : '' }, loginButton };
+      attempts.push(result);
+      fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-login-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts }, null, 2));
+      await activePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+      if (result.ok) result.purchaseManagement = await clickVaatzPurchaseManagement();
+      return result;
+    }
+
+    await activePage.waitForTimeout(750).catch(() => {});
+  }
+
+  fs.writeFileSync(path.join(ARTIFACT_DIR, 'vaatz-login-result.json'), JSON.stringify({ at: new Date().toISOString(), attempts, skipped: true, reason: 'login-screen-not-found' }, null, 2));
+  return { ok: false, skipped: true, reason: 'login-screen-not-found' };
+}
+
 async function goToVaatz() {
   await ensurePage();
   let attemptedOpen = false;
@@ -1076,11 +1493,12 @@ app.post('/api/dump-page', async (_req, res) => {
   }
 });
 
-app.post('/api/wia-vaatz-direct', async (_req, res) => {
+app.post('/api/wia-vaatz-direct', async (req, res) => {
   try {
     lastError = null;
     const movedTo = await openGlobalVaatzDirect();
-    res.json({ movedTo, ...(await getStatus()) });
+    const vaatzLogin = await loginVaatzIfLoginScreen(req.body || {});
+    res.json({ movedTo, vaatzLogin, ...(await getStatus()) });
   } catch (error) {
     lastError = error.message;
     res.status(500).json(await getStatus());

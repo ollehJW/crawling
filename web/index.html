@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WIA Vaatz</title>
-    <link rel="stylesheet" href="/styles.css?v=20260730-1015" />
+    <link rel="stylesheet" href="/styles.css?v=20260730-1125" />
   </head>
   <body>
     <main class="app">
@@ -42,6 +42,23 @@
         <img id="screen" alt="WIA Vaatz browser screen" draggable="false" />
       </section>
     </main>
-    <script src="/app.js?v=20260730-1015"></script>
+    <div id="vaatzLoginModal" class="modal" hidden>
+      <form id="vaatzLoginForm" class="modal-dialog">
+        <h2>Vaatz 로그인</h2>
+        <label>
+          <span>ID</span>
+          <input id="vaatzIdInput" class="side-input" type="text" autocomplete="username" />
+        </label>
+        <label>
+          <span>PASSWORD</span>
+          <input id="vaatzPasswordInput" class="side-input" type="password" autocomplete="current-password" />
+        </label>
+        <div class="modal-actions">
+          <button id="vaatzLoginCancel" type="button">취소</button>
+          <button type="submit">확인</button>
+        </div>
+      </form>
+    </div>
+    <script src="/app.js?v=20260730-1125"></script>
   </body>
 </html>

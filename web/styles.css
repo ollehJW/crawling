@@ -161,3 +161,48 @@ button:hover {
 .automation-log .warn {
   color: #ffd480;
 }
+
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 8, 12, 0.68);
+  z-index: 20;
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-dialog {
+  width: min(360px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #42505d;
+  border-radius: 8px;
+  background: #151b21;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.modal-dialog h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.modal-dialog label {
+  display: grid;
+  gap: 6px;
+  color: #aab6bf;
+  font-size: 12px;
+}
+
+.modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}

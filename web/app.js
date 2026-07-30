@@ -2,6 +2,11 @@ const screen = document.querySelector('#screen');
 const urlEl = document.querySelector('#url');
 const stateEl = document.querySelector('#state');
 const rightMouseMode = document.querySelector('#rightMouseMode');
+const vaatzLoginModal = document.querySelector('#vaatzLoginModal');
+const vaatzLoginForm = document.querySelector('#vaatzLoginForm');
+const vaatzLoginCancel = document.querySelector('#vaatzLoginCancel');
+const vaatzIdInput = document.querySelector('#vaatzIdInput');
+const vaatzPasswordInput = document.querySelector('#vaatzPasswordInput');
 const approvalNumberInput = document.querySelector('#approvalNumberInput');
 const orderStartDateInput = document.querySelector('#orderStartDateInput');
 const orderEndDateInput = document.querySelector('#orderEndDateInput');
@@ -43,9 +48,45 @@ function startRefresh() {
   refreshTimer = setInterval(refreshScreen, 700);
 }
 
-document.querySelector('#wiaDirect').addEventListener('click', async () => {
+function openVaatzLoginModal() {
+  vaatzLoginModal.hidden = false;
+  vaatzIdInput.focus();
+}
+
+function closeVaatzLoginModal() {
+  vaatzLoginModal.hidden = true;
+  vaatzPasswordInput.value = '';
+}
+
+document.querySelector('#wiaDirect').addEventListener('click', () => {
+  openVaatzLoginModal();
+});
+
+vaatzLoginCancel.addEventListener('click', () => {
+  closeVaatzLoginModal();
+});
+
+vaatzLoginModal.addEventListener('click', (event) => {
+  if (event.target === vaatzLoginModal) closeVaatzLoginModal();
+});
+
+vaatzLoginForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const vaatzId = vaatzIdInput.value.trim();
+  const vaatzPassword = vaatzPasswordInput.value;
+  if (!vaatzId || !vaatzPassword) {
+    stateEl.textContent = 'Vaatz ID/PW를 입력하세요';
+    (!vaatzId ? vaatzIdInput : vaatzPasswordInput).focus();
+    return;
+  }
+
+  closeVaatzLoginModal();
   stateEl.textContent = 'WIA Vaatz 이동 중';
-  await api('/api/wia-vaatz-direct', { method: 'POST' });
+  const result = await api('/api/wia-vaatz-direct', {
+    method: 'POST',
+    body: JSON.stringify({ vaatzId, vaatzPassword })
+  });
+  stateEl.textContent = result.vaatzLogin && result.vaatzLogin.ok ? 'Vaatz 로그인 완료' : 'WIA Vaatz 이동 완료';
   startRefresh();
 });
 
@@ -103,8 +144,13 @@ screen.addEventListener('contextmenu', async (event) => {
 });
 
 window.addEventListener('keydown', async (event) => {
+  if (event.key === 'Escape' && !vaatzLoginModal.hidden) {
+    closeVaatzLoginModal();
+    return;
+  }
+
   const target = event.target;
-  if (target && target.closest && target.closest('.panel input, .panel textarea, .panel select')) {
+  if (target && target.closest && target.closest('.panel input, .panel textarea, .panel select, .modal input')) {
     return;
   }
 
